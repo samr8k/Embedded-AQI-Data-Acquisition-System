@@ -1,113 +1,169 @@
-# Embedded AQI Data Acquisition System 🌍📊
 
-The **Embedded AQI Data Acquisition System** is a multi-sensor air quality monitoring prototype that provides **real-time monitoring**, **data logging**, and **graph-based visualization** for analysis.  
-It integrates particulate sensing, gas trend monitoring, and environmental sensing, making it a complete embedded solution for indoor/outdoor air quality monitoring.
 
-This project is designed to be extendable into a full **IoT + AI-integrated smart air monitoring system** in future.
+# 🌫️ IoT-Based Air Quality Monitoring & Control System
 
----
+An **embedded, state-driven air quality monitoring system** using **ESP8266**, capable of real-time AQI calculation, sensor fault detection, noise-filtered data processing, OLED visualization, and cloud telemetry via ThingSpeak.
 
-## ✨ Key Features
-
-✅ **Real-Time Air Quality Monitoring**  
-- PM1.0 / PM2.5 / PM10 measurement using **PMS5003**
-- Gas/Air quality trend detection using **MQ135**
-- Temperature & Humidity measurement using **DHT11**
-
-✅ **Live Display Output (OLED)**  
-- Real-time values displayed on **0.96" OLED SSD1306 (I2C)**
-
-✅ **Data Logging & Analysis Ready**  
-- Continuous data logging in structured format (CSV/Serial/Cloud-ready)
-- Supports analysis and visualization through graphs
-
-✅ **Graph Visualization (Trends)**  
-- PM2.5 vs Time
-- PM10 vs Time
-- MQ135 vs Time
-- Temperature/Humidity vs Time
-
-✅ **AQI Severity Indication (RGB LED)**  
-- Quick visual indicator of air quality level:
-  - Good / Moderate / Poor / Severe
-
-✅ **Regulated Power Supply Design**  
-- Uses **LM2596 Buck Converter** for stable 5V regulation
+This project is designed as an **industry-style proof of concept (PoC)** for environmental monitoring applications.
 
 ---
 
-## 🧠 System Overview
+## 📌 Features
 
-The system collects data from all sensors, processes it on the microcontroller, displays it on the OLED in real time, logs the data for later analysis, and indicates AQI severity using RGB LED.
+*  **Real-time PM monitoring** (PM1.0, PM2.5, PM10) using PMS5003
+*  **Gas sensing** using MQ135
+*  **State-based system architecture**
 
----
-
-## 🧩 Block Diagram
-
-<img width="1536" height="1024" alt="aqi" src="https://github.com/user-attachments/assets/55403b90-1409-44fe-8ab6-3c2ff7a2d68e" />
-
-
----
-
-## 🔌 Connection Diagram
-
-![WhatsApp Image 2026-01-19 at 8 49 21 PM](https://github.com/user-attachments/assets/9119b373-b319-4d85-b9ed-16380d352ca5)
-
-
----
-
-## 🏗️ Prototype (Hardware Build)
-
-> Final hardware is assembled on a **perfboard (no breadboard)** for stable and reliable operation.
-
-
-
-## 🧰 Hardware Components
-
-| Component | Purpose |
-|----------|---------|
-| Arduino Nano / NodeMCU ESP8266 | Main controller |
-| PMS5003 | PM1.0 / PM2.5 / PM10 sensing |
-| MQ135 | Gas / Air quality trend sensing |
-| DHT11 | Temperature & Humidity sensing |
-| OLED SSD1306 (0.96") | Live data display |
-| RGB LED | AQI severity indication |
-| LM2596 Buck Converter | Stable regulated 5V supply |
+  * INIT (sensor warm-up)
+  * GOOD
+  * MODERATE
+  * UNHEALTHY
+  * HAZARDOUS
+  * FAULT
+*  **Sensor warm-up handling (INIT state)** to avoid unstable readings
+*  **Noise reduction using Exponential Moving Average (EMA) filtering**
+*  **Sensor fault detection**
+*  **Live OLED display**
+*  **Cloud logging & visualization using ThingSpeak**
+*  **Rate-limited cloud updates** (15-second interval)
 
 ---
 
-## 📌 Working Principle (Summary)
+## 🧠 System Architecture
 
-1. **PMS5003** measures PM concentration via UART communication  
-2. **MQ135** provides analog air quality trend output  
-3. **DHT11** gives temperature & humidity context  
-4. Microcontroller processes and formats the sensor values  
-5. OLED shows live readings  
-6. RGB LED indicates severity based on PM2.5 thresholds  
-7. Data is logged for graph plotting and trend analysis
+```
+Sensors → Filtering → AQI Calculation → State Machine
+   ↓            ↓              ↓            ↓
+ PMS5003     EMA Filter      AQI Index   System State
+ MQ135                                          ↓
+                                          OLED + Cloud
+```
+
+All outputs (OLED display and cloud telemetry) are driven by a **single system state**, ensuring consistency and reliability.
+
+---
+
+## 🛠️ Hardware Used
+
+| Component             | Description                     |
+| --------------------- | ------------------------------- |
+| ESP8266               | Main microcontroller with Wi-Fi |
+| PMS5003               | Laser particulate matter sensor |
+| MQ135                 | Gas sensor                      |
+| OLED (SSD1306)        | 128×64 display                  |
+| 10kΩ Resistors        | Pull-up / voltage divider       |
+| External Power Supply | Stable 5V recommended           |
+
+---
+
+## 📦 Software & Libraries
+
+* **Arduino IDE**
+* **ESP8266 Board Package**
+* Libraries:
+
+  * `ESP8266WiFi`
+  * `ThingSpeak`
+  * `Adafruit_GFX`
+  * `Adafruit_SSD1306`
+  * `SoftwareSerial`
+
+---
+
+## ⚙️ How It Works
+
+### 1️⃣ INIT / Warm-up State
+
+* System ignores sensor data for the first **60 seconds**
+* Prevents unstable readings at startup
+* OLED displays *“System INIT – Warming sensors”*
+
+### 2️⃣ Sensor Acquisition
+
+* PMS5003 data read using a **non-blocking serial parser**
+* MQ135 read via ADC
+
+### 3️⃣ Noise Reduction
+
+* PM2.5 values filtered using **Exponential Moving Average (EMA)**
+
+  ```text
+  PM_filtered = α × PM_current + (1 − α) × PM_previous
+  ```
+
+### 4️⃣ AQI Calculation
+
+* AQI computed using EPA-style breakpoints based on PM2.5
+
+### 5️⃣ State Decision
+
+* AQI and fault flags mapped to a **system state**
+* Faults override AQI-based states
+
+### 6️⃣ Output Handling
+
+* OLED displays AQI and current system state
+* ThingSpeak logs:
+
+  * PM1, PM2.5, PM10
+  * AQI
+  * Gas level
+  * System state code
+
+---
+
+## 📊 ThingSpeak Field Mapping
+
+| Field   | Description       |
+| ------- | ----------------- |
+| Field 1 | PM1.0             |
+| Field 2 | PM2.5             |
+| Field 3 | PM10              |
+| Field 4 | AQI               |
+| Field 5 | MQ135 Raw Value   |
+| Field 6 | System State Code |
+
+---
+
+## ⚠️ Fault Detection Logic
+
+The system enters `STATE_FAULT` if:
+
+* PMS5003 data is unavailable
+* PM values exceed valid range
+* Sensor communication fails
+
+This ensures **fail-safe behavior**, a key industry requirement.
+
+---
+
+## 🚀 Applications
+
+* Indoor air quality monitoring
+* Smart buildings
+* Industrial environmental monitoring
+* EV cabin air quality systems (PoC)
+* IoT-based pollution analytics
+
+---
 
 
 
+## 🔮 Future Improvements
 
-## 🚀 Future Scope (AI + IoT Integration)
+* Automatic ventilation / fan control
+* MQTT-based communication
+* CAN-based sensor network (EV use-case)
+* Data analytics & prediction
+* Mobile dashboard
 
-This project can be upgraded into an intelligent smart system by adding:
+---
 
-- ✅ Cloud dashboard (ThingSpeak / Firebase / MQTT)
-- ✅ AI-based pollution prediction
-- ✅ Anomaly detection for sudden pollution spikes
-- ✅ Health recommendations based on AQI level
-- ✅ Smart ventilation control automation
+## 👨‍💻 Author
 
+**Samrat**
 
+Mechanical Engineering (EV & Electronics)
 
-## 📍 Applications
-
-- Indoor air quality monitoring (rooms, labs, classrooms)
-- Pollution trend study in local environments
-- Smart home air monitoring + alerts
-- Environmental data collection system for research
-
-
-
+Interest: Embedded Systems, IoT, EV Technologies
 
